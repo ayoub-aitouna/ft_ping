@@ -66,7 +66,7 @@ clean:
 
 .PHONY: fclean
 fclean :
-	rm -rf  ${BUILD_DIR}
+	rm -rf  build
 
 .PHONY: re
 re : fclean  ${BUILD_DIR}/${TARGET}

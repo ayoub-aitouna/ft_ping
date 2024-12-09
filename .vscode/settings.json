@@ -5,6 +5,9 @@
         "if_ether.h": "c",
         "types.h": "c",
         "ip_icmp.h": "c",
-        "icmp.h": "c"
+        "icmp.h": "c",
+        "netdb.h": "c",
+        "stdio.h": "c",
+        "stdlib.h": "c"
     }
 }
