@@ -1,60 +1,69 @@
 #include "includes/main.h"
 
-void exit_with_msg(char *msg, int status)
+int ping_loop = 1;
+
+void exit_with_msg(char *msg)
 {
     printf("%s terminated for the following reasons\n", TARGET_NAME);
-    printf("%s\n", msg);
-    exit(status);
+    perror(msg);
+    exit(EXIT_FAILURE);
 }
 
-uint16_t checksum(void *packet, int packet_len)
+void inthandler()
 {
-    uint16_t *buff = packet;
-    u_int32_t sum = 0;
-    u_int16_t result = 0;
+    ping_loop = 0;
+}
 
-    while (packet_len > 1)
+void ping(int sock, int ttl, char *addr)
+{
+    struct timeval st;
+    int bytes;
+    int seq;
+    int sp, rp;
+
+    seq = 0;
+    gettimeofday(&st, NULL);
+
+    while (ping_loop)
     {
-        sum += *buff++;
-        packet_len -= 2;
+        if ((bytes = send_icmp_packet(sock, addr, seq)) > 0)
+            sp++;
+
+        if (recieve_icmp_packet(sock, ttl, addr, seq, bytes) > 0)
+            rp++;
+
+        seq++;
+        usleep(PING_SLEEP_RATE);
     }
 
-    if (packet_len == 1)
-        sum += *(u_int8_t *)buff;
-
-    sum = (sum >> 16) + (sum & 0xFFFF);
-    sum += (sum >> 16);
-    result = ~sum;
-    return result;
+    struct timeval diff = get_round_time(st);
+    printf("\n--- %s ping statistics --- \n", addr);
+    printf("%d packets transmitted, %d received, %d%% packet loss, time %ld ms\n", seq, rp, sp - rp, diff.tv_usec / 1000);
+    printf("rtt min/avg/max/mdev = 20.448/20.886/21.324/0.438 ms\n");
 }
 
-t_icmp build_icmp_packet()
-{
-    t_icmp icmp_hdr;
-    memset(&icmp_hdr, 0, sizeof(icmp_hdr));
-    icmp_hdr.type = ICMP_ECHO;
-    icmp_hdr.code = 0;
-    icmp_hdr.un.echo.id = getpid();
-    icmp_hdr.un.echo.sequence = 1;
-    icmp_hdr.checksum = 0;
-    icmp_hdr.checksum = checksum(&icmp_hdr, sizeof(icmp_hdr));
-    printf("Created New ICMP Header:\n");
-    printf("Type: %d, Code: %d, ID: %d, Sequence: %d, Checksum: 0x%x\n",
-           icmp_hdr.type, icmp_hdr.code, icmp_hdr.un.echo.id,
-           icmp_hdr.un.echo.sequence, icmp_hdr.checksum);
-    return icmp_hdr;
-}
-
-int main()
+int main(int ac, char **av)
 {
 
-    int sock;
     struct protoent *protocol;
-    t_icmp icmp_hdr;
+    int sock;
+    int ttl;
+
+    if (ac != 2)
+        exit_with_msg("Incorrect number of arguments");
+
+    signal(SIGINT, inthandler);
     protocol = getprotobyname("icmp");
-    sock = socket(AF_PACKET, SOCK_RAW, IPPROTO_ICMP);
-    if (sock < 0)
-        exit_with_msg("Failed while trying to open a raw socket", 1);
-    icmp_hdr = build_icmp_packet();
+    ttl = 60;
+
+    if ((sock = socket(AF_INET, SOCK_RAW, protocol->p_proto)) < 0)
+        exit_with_msg("Failed while trying to open a raw socket");
+
+    if (setsockopt(sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0)
+        exit_with_msg("Failed while trying to Set TTL using setsockopt");
+
+    ping(sock, ttl, av[1]);
+
+    close(sock);
     return 0;
 }

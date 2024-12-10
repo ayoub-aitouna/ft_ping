@@ -5,7 +5,7 @@ CXX = g++
 LD = $(CC)
 STRIP = strip
 
-TARGET = ft_ping
+TARGET_NAME = ft_ping
 
 SRC = $(wildcard src/*.c src/**/*.c)
 	
@@ -22,12 +22,12 @@ endif
 
 BUILD_DIR = build/$(CFG)
 OBJS_DIR = $(BUILD_DIR)/objs
-
+TARGET = ${BUILD_DIR}/${TARGET_NAME}
 OBJS=$(patsubst %.c, $(OBJS_DIR)/%.o, ${SRC})
 DEPS=$(patsubst %.c, $(OBJS_DIR)/%.d, ${SRC})
 
 .PHONY: all
-all: ${BUILD_DIR}/${TARGET}
+all: ${TARGET}
 
 .PHONY: inform
 inform:
@@ -46,13 +46,11 @@ endif
 	@echo "|configuration "$(CFG)"                          │"
 	@echo "└---------------------------------------------┘"
 
-${BUILD_DIR}/${TARGET}: ${OBJS} | inform
+${TARGET}: ${OBJS} | inform
 	@mkdir -p ${dir $@}
 	@$(LD) $(LDFLAGS) -o $@.debug $(OBJS)
 	@$(STRIP) $@.debug -o $@
-	@echo
-	@echo "To start the program, run:"
-	@echo "   $@"
+	ln -fs ${TARGET} ${TARGET_NAME} 
 
 $(OBJS_DIR)/%.o: %.c | inform
 	@mkdir -p ${dir $@}
@@ -62,15 +60,22 @@ $(OBJS_DIR)/%.o: %.c | inform
 
 .PHONY: clean
 clean:
-	@rm $(OBJS) $(DEPS) ${BUILD_DIR}/${TARGET} ${BUILD_DIR}/${TARGET}.debug
+	@rm -rf $(OBJS) $(DEPS) ${TARGET} ${TARGET}.debug   ${TARGET_NAME	}
 
 .PHONY: fclean
-fclean :
-	rm -rf  build
+fclean: clean
+	rm -rf  build  
 
 .PHONY: re
-re : fclean  ${BUILD_DIR}/${TARGET}
+re : fclean  ${TARGET}
 
+
+
+.PHONY: spinup
+spinup:
+	@echo "Staring Docker Container" 
+	@docker build -t ft_ping .
+	@docker run -v $${PWD}:/app -it ft_ping zsh
 
 .PHONY: help
 help:
@@ -80,6 +85,7 @@ help:
 	@echo "   clean    Remove object files and intermediate build files"
 	@echo "   fclean   Remove the build directory"
 	@echo "   re       Clean and rebuild"
+	@echo "   spinup   create a container and launch it for testing"
 	@echo "   help     Show this help message"
 	
 -include $(DEPS)
