@@ -11,15 +11,30 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <netinet/ip.h>
-#include <sys/time.h>
-#include <time.h>
 #include <stdbool.h>
-#define PING_SLEEP_RATE 1000000
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <time.h>
+
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#define PING_SLEEP_RATE 10000
+#define LOG 0
+#define TARGET_NAME "ft_ping"
+
+
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC 1
+#endif
 
 typedef struct icmphdr icmphdr_t;
 typedef struct icmp_payload
 {
-    struct timeval timestamp;
+    struct timespec timestamp;
     char msg[40];
 } icmp_payload_t;
 

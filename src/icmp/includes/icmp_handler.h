@@ -1,8 +1,6 @@
 #pragma once
-
 #include "../../includes/types.h"
+#include "../../utils/includes/utils.h"
 
-int send_icmp_packet(int sock, char *addr, int seq);
-int recieve_icmp_packet(int sock, int ttl, char *addr, int seq, int bytes);
-void exit_with_msg(char *msg);
-struct timeval get_round_time(struct timeval old);
+int send_icmp_packet(int sock, struct sockaddr_in dest_addr, icmp_packet_t icmp_packet);
+icmp_packet_t *recieve_icmp_packet(int sock);

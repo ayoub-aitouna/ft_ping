@@ -1,69 +1,150 @@
 #include "includes/main.h"
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
-int ping_loop = 1;
+int running = true;
 
-void exit_with_msg(char *msg)
+int main(int ac, char **av)
 {
-    printf("%s terminated for the following reasons\n", TARGET_NAME);
-    perror(msg);
-    exit(EXIT_FAILURE);
+    signal(SIGINT, inthandler);
+
+    struct sockaddr_in dest_addr;
+    int sock, epoll_fd, ttl;
+
+    ttl = 120;
+    if (ac != 2)
+        handle_exit("Incorrect number of arguments");
+
+    sock = setup_socket(ttl);
+    dest_addr = dns_lookup(av[1]);
+    epoll_fd = setup_epoll(sock);
+
+    proccess_events(epoll_fd, sock, ttl, dest_addr);
+
+    close(epoll_fd);
+    close(sock);
+
+    return 0;
+}
+
+int setup_socket(int ttl)
+{
+    struct protoent *protocol;
+    int sock;
+
+    protocol = getprotobyname("icmp");
+    if ((sock = socket(AF_INET, SOCK_RAW, protocol->p_proto)) < 0)
+        handle_exit("Failed while trying to open a raw socket");
+
+    if (setsockopt(sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0)
+        handle_exit("Failed while trying to Set TTL using setsockopt");
+
+    return sock;
+}
+
+int setup_epoll(int sock)
+{
+    struct epoll_event ev;
+    int epoll_fd;
+
+    if ((epoll_fd = epoll_create1(0)) < 0)
+    {
+        close(epoll_fd);
+        handle_exit("epoll create failed. ");
+    }
+
+    ev.events = EPOLLIN | EPOLLOUT;
+    ev.data.fd = sock;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock, &ev) < 0)
+    {
+        close(epoll_fd);
+        handle_exit("epoll ctl failed .");
+    }
+
+    return epoll_fd;
+}
+
+struct sockaddr_in dns_lookup(char *hostname)
+{
+    struct sockaddr_in dest_addr;
+    struct in_addr **addr_list;
+    struct hostent *hent;
+    char *ip;
+    memset(&dest_addr, 0, sizeof(dest_addr));
+    dest_addr.sin_family = AF_INET;
+
+    if (!(hent = gethostbyname(hostname)))
+        handle_exit("gethostbyname failed");
+
+    addr_list = (struct in_addr **)hent->h_addr_list;
+
+    for (int i = 0; addr_list[i] != NULL; i++)
+        ip = inet_ntoa(*addr_list[i]);
+
+    dest_addr.sin_addr.s_addr = inet_addr(ip);
+    return dest_addr;
 }
 
 void inthandler()
 {
-    ping_loop = 0;
+    running = false;
 }
 
-void ping(int sock, int ttl, char *addr)
+void proccess_events(int epoll_fd, int sockfd, int ttl, struct sockaddr_in dest_addr)
 {
-    struct timeval st;
-    int bytes;
-    int seq;
-    int sp, rp;
+    struct epoll_event ev, events[1];
+    int bytes, seq;
+    icmp_packet_t *packet;
+    int fds, r_flag;
 
-    seq = 0;
-    gettimeofday(&st, NULL);
-
-    while (ping_loop)
+    seq = 1;
+    while (running)
     {
-        if ((bytes = send_icmp_packet(sock, addr, seq)) > 0)
-            sp++;
+        r_flag = false;
+        fds = epoll_wait(epoll_fd, events, 1, 5000);
+        if (fds < 0)
+            handle_exit("epoll wait failed .");
 
-        if (recieve_icmp_packet(sock, ttl, addr, seq, bytes) > 0)
-            rp++;
+        else if (fds == 0)
+        {
+            printf("Timout wailting for packet. \n");
+            continue;
+        }
 
-        seq++;
-        usleep(PING_SLEEP_RATE);
+        if (events[0].data.fd = sockfd && (events->events & EPOLLOUT))
+        {
+            toggle_epoll(epoll_fd, sockfd, EPOLLIN);
+            if ((bytes = send_icmp_packet(sockfd, dest_addr, build_icmp_packet(seq))) < 0)
+            {
+                printf("snd failed \n");
+                continue;
+            }
+        }
+
+        if (events[0].data.fd = sockfd && (events->events & EPOLLIN))
+        {
+            toggle_epoll(epoll_fd, sockfd, EPOLLIN | EPOLLOUT);
+            if (!(packet = recieve_icmp_packet(sockfd)))
+            {
+                printf("rcv failed \n");
+                continue;
+            }
+            ping_report(get_round_time(packet->payload.timestamp), ttl, bytes, dest_addr, seq);
+            r_flag = true;
+            free(packet);
+            seq++;
+        }
+        if (r_flag)
+            usleep(PING_SLEEP_RATE);
     }
-
-    struct timeval diff = get_round_time(st);
-    printf("\n--- %s ping statistics --- \n", addr);
-    printf("%d packets transmitted, %d received, %d%% packet loss, time %ld ms\n", seq, rp, sp - rp, diff.tv_usec / 1000);
-    printf("rtt min/avg/max/mdev = 20.448/20.886/21.324/0.438 ms\n");
 }
 
-int main(int ac, char **av)
+void toggle_epoll(int epoll_fd, int sockfd, uint32_t events)
 {
-
-    struct protoent *protocol;
-    int sock;
-    int ttl;
-
-    if (ac != 2)
-        exit_with_msg("Incorrect number of arguments");
-
-    signal(SIGINT, inthandler);
-    protocol = getprotobyname("icmp");
-    ttl = 60;
-
-    if ((sock = socket(AF_INET, SOCK_RAW, protocol->p_proto)) < 0)
-        exit_with_msg("Failed while trying to open a raw socket");
-
-    if (setsockopt(sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0)
-        exit_with_msg("Failed while trying to Set TTL using setsockopt");
-
-    ping(sock, ttl, av[1]);
-
-    close(sock);
-    return 0;
+    struct epoll_event ev;
+    ev.events = events;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, sockfd, &ev) < 0)
+        handle_exit("epoll_ctl modification failed.");
 }

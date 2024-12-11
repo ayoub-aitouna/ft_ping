@@ -60,11 +60,13 @@ $(OBJS_DIR)/%.o: %.c | inform
 
 .PHONY: clean
 clean:
-	@rm -rf $(OBJS) $(DEPS) ${TARGET} ${TARGET}.debug   ${TARGET_NAME	}
+	@rm -rf $(OBJS) $(DEPS) ${TARGET} ${TARGET}.debug   ${TARGET_NAME}
+	@echo "deleted [Objects|Dependency files] & ${TARGET}"
 
 .PHONY: fclean
 fclean: clean
-	rm -rf  build  
+	@rm -rf  build
+	@echo "deleted build directory"
 
 .PHONY: re
 re : fclean  ${TARGET}
