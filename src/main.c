@@ -92,6 +92,14 @@ void inthandler()
     running = false;
 }
 
+double get_timestamp()
+{
+    struct timespec time;
+    clock_gettime(CLOCK_MONOTONIC, &time);
+    return time.tv_sec +
+           time.tv_nsec / 1000000000;
+}
+
 void proccess_events(int epoll_fd, int sockfd, int ttl, struct sockaddr_in dest_addr)
 {
     struct epoll_event ev, events[1];
@@ -100,6 +108,8 @@ void proccess_events(int epoll_fd, int sockfd, int ttl, struct sockaddr_in dest_
     int fds, r_flag;
 
     seq = 1;
+    double next_ts = get_timestamp();
+
     while (running)
     {
         r_flag = false;
@@ -113,9 +123,9 @@ void proccess_events(int epoll_fd, int sockfd, int ttl, struct sockaddr_in dest_
             continue;
         }
 
-        if (events[0].data.fd = sockfd && (events->events & EPOLLOUT))
+        if (events[0].data.fd = sockfd && (events->events & EPOLLOUT) && get_timestamp() > next_ts)
         {
-            toggle_epoll(epoll_fd, sockfd, EPOLLIN);
+            next_ts += 1;
             if ((bytes = send_icmp_packet(sockfd, dest_addr, build_icmp_packet(seq))) < 0)
             {
                 printf("snd failed \n");
@@ -125,7 +135,6 @@ void proccess_events(int epoll_fd, int sockfd, int ttl, struct sockaddr_in dest_
 
         if (events[0].data.fd = sockfd && (events->events & EPOLLIN))
         {
-            toggle_epoll(epoll_fd, sockfd, EPOLLIN | EPOLLOUT);
             if (!(packet = recieve_icmp_packet(sockfd)))
             {
                 printf("rcv failed \n");
@@ -136,15 +145,5 @@ void proccess_events(int epoll_fd, int sockfd, int ttl, struct sockaddr_in dest_
             free(packet);
             seq++;
         }
-        if (r_flag)
-            usleep(PING_SLEEP_RATE);
     }
-}
-
-void toggle_epoll(int epoll_fd, int sockfd, uint32_t events)
-{
-    struct epoll_event ev;
-    ev.events = events;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, sockfd, &ev) < 0)
-        handle_exit("epoll_ctl modification failed.");
 }
