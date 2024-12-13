@@ -12,3 +12,4 @@
 
 void print_helper();
 int parse_args(int ac, char **av, arg_parser_t *args);
+void print_version();

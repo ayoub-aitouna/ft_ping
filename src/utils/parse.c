@@ -10,6 +10,7 @@ int parse_args(int ac, char **av, arg_parser_t *args)
 
     args->ttl = 120;
     args->flags = 0x0;
+    args->interval = 0;
 
     struct option long_options[] = {
         {"ttl", no_argument, NULL, 't'},
@@ -25,9 +26,6 @@ int parse_args(int ac, char **av, arg_parser_t *args)
         case 'f':
             args->flags |= PING_FLOOD;
             break;
-        case 'h':
-            print_helper();
-            return 0;
         case 'l':
             args->flags |= PING_PRELOAD;
             break;
@@ -40,27 +38,31 @@ int parse_args(int ac, char **av, arg_parser_t *args)
         case 'v':
             args->flags |= PING_VEBROSE;
             break;
-        case 'V':
-            args->flags |= PING_VEBROSE;
-            break;
         case 'w':
             break;
         case 'W':
             break;
+        case 'V':
+            print_version();
+            exit(0);
         case '?':
+        case 'h':
             print_helper();
-            return 1;
+            exit(0);
         }
     }
-
     if (ac - optind != 1)
     {
         printf("%s: usage error: Destination address required\n", TARGET_NAME);
-        return 1;
+        exit(1);
     }
     args->hostname = av[optind];
-    printf("hostname : %s\n", args->hostname);
     return 0;
+}
+
+void print_version()
+{
+    printf("%s version 1.0.0\n", TARGET_NAME);
 }
 
 void print_helper()
@@ -77,7 +79,5 @@ void print_helper()
            "  -v                 verbose output\n"
            "  -V                 print version and exit\n"
            "  -w <deadline>      reply wait <deadline> in seconds\n"
-           "  -W <timeout>       time to wait for response\n"
-
-    );
+           "  -W <timeout>       time to wait for response\n");
 }

@@ -13,8 +13,7 @@ int main(int ac, char **av)
 
     signal(SIGINT, inthandler);
 
-    if (parse_args(ac, av, &args))
-        return 1;
+    parse_args(ac, av, &args);
 
     sock = setup_socket(args.ttl);
     args.dest_addr = dns_lookup(args.hostname);
@@ -113,6 +112,7 @@ void proccess_events(int epoll_fd, int sockfd, arg_parser_t args)
     statics.recieved = 0;
     while (running)
     {
+
         fds = epoll_wait(epoll_fd, events, 1, 5000);
 
         if (fds < 0)
@@ -132,6 +132,8 @@ void proccess_events(int epoll_fd, int sockfd, arg_parser_t args)
                 printf("snd failed \n");
                 continue;
             }
+            if (args.flags & PING_FLOOD)
+                printf(".") && fflush(stdout);
             flag = PING_SENT;
             statics.sent += 1;
         }
@@ -147,7 +149,11 @@ void proccess_events(int epoll_fd, int sockfd, arg_parser_t args)
                 continue;
             rtt = get_round_time(packet->payload.timestamp);
 
-            ping_report(rtt, bytes, seq, args);
+            if (args.flags & PING_FLOOD)
+                printf("\b") && fflush(stdout);
+            else
+                ping_report(rtt, bytes, seq, args);
+
             free(packet);
             seq++;
             flag = PING_RECVED;

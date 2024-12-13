@@ -69,7 +69,7 @@ typedef struct arg_parser
     char *rdns_hostname;
     char ip[INET_ADDRSTRLEN];
     __uint32_t flags;
-    __uint64_t interval;
+    double interval;
     __uint32_t ttl;
     struct sockaddr_in dest_addr;
 

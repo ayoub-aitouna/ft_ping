@@ -102,7 +102,7 @@ double get_timestamp()
 
 short is_time_to_send(arg_parser_t args, double next_ts, __uint32_t flag)
 {
-    if (!args.flags & PING_FLOOD)
+    if (args.flags & PING_FLOOD)
         return get_timestamp() + args.interval > next_ts - 1;
     return get_timestamp() > next_ts;
 }
