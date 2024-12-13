@@ -7,16 +7,10 @@ void handle_exit(char *msg)
     exit(EXIT_FAILURE);
 }
 
-void ping_report(double rtt, int ttl, int bytes, struct sockaddr_in dest_addr, int seq)
+void ping_report(double rtt, int bytes, int seq, arg_parser_t args)
 {
-    char *hostname;
-    char ip[INET_ADDRSTRLEN];
-
-    hostname = reverse_dns_lookup(&dest_addr);
-    inet_ntop(AF_INET, &(dest_addr.sin_addr), ip, INET_ADDRSTRLEN);
     printf("%d bytes from %s (%s) icmp_seq=%d ttl=%d time= %.2f ms\n",
-           bytes, hostname, ip, seq, ttl, rtt);
-    free(hostname);
+           bytes, args.rdns_hostname, args.ip, seq, args.ttl, rtt);
 }
 
 uint16_t checksum(void *packet, int packet_len)
@@ -96,4 +90,25 @@ char *reverse_dns_lookup(struct sockaddr_in *addr)
     if (getnameinfo((struct sockaddr *)addr, sizeof(struct sockaddr_in), buffer, NI_MAXHOST, NULL, 0, NI_NAMEREQD))
         handle_exit("getnameinfo fialed");
     return buffer;
+}
+
+double get_timestamp()
+{
+    struct timespec time;
+    clock_gettime(CLOCK_MONOTONIC, &time);
+    return time.tv_sec +
+           time.tv_nsec / 1000000000;
+}
+
+short is_time_to_send(arg_parser_t args, double next_ts, __uint32_t flag)
+{
+    if (!args.flags & PING_FLOOD)
+        return get_timestamp() + args.interval > next_ts - 1;
+    return get_timestamp() > next_ts;
+}
+
+double calculate_statistics(statistics_t statistics)
+{
+    statistics.mdev = 0.0; // calculate it later
+    statistics.lost = ((statistics.sent - statistics.recieved) / statistics.sent) * 100;
 }

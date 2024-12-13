@@ -7,24 +7,27 @@ int running = true;
 
 int main(int ac, char **av)
 {
+    struct sockaddr_in dest_addr;
+    arg_parser_t args;
+    int sock, epoll_fd;
+
     signal(SIGINT, inthandler);
 
-    struct sockaddr_in dest_addr;
-    int sock, epoll_fd, ttl;
+    if (parse_args(ac, av, &args))
+        return 1;
 
-    ttl = 120;
-    if (ac != 2)
-        handle_exit("Incorrect number of arguments");
-
-    sock = setup_socket(ttl);
-    dest_addr = dns_lookup(av[1]);
+    sock = setup_socket(args.ttl);
+    args.dest_addr = dns_lookup(args.hostname);
     epoll_fd = setup_epoll(sock);
 
-    proccess_events(epoll_fd, sock, ttl, dest_addr);
+    args.rdns_hostname = reverse_dns_lookup(&args.dest_addr);
+    inet_ntop(AF_INET, &(args.dest_addr.sin_addr), args.ip, INET_ADDRSTRLEN);
+
+    proccess_events(epoll_fd, sock, args);
 
     close(epoll_fd);
     close(sock);
-
+    free(args.rdns_hostname);
     return 0;
 }
 
@@ -92,28 +95,26 @@ void inthandler()
     running = false;
 }
 
-double get_timestamp()
-{
-    struct timespec time;
-    clock_gettime(CLOCK_MONOTONIC, &time);
-    return time.tv_sec +
-           time.tv_nsec / 1000000000;
-}
+void proccess_events(int epoll_fd, int sockfd, arg_parser_t args)
 
-void proccess_events(int epoll_fd, int sockfd, int ttl, struct sockaddr_in dest_addr)
 {
     struct epoll_event ev, events[1];
-    int bytes, seq;
     icmp_packet_t *packet;
-    int fds, r_flag;
+    __uint32_t bytes, seq;
+    __uint32_t fds;
+    __uint32_t flag;
+    statistics_t statics;
+    double next_ts, rtt;
 
     seq = 1;
-    double next_ts = get_timestamp();
-
+    next_ts = get_timestamp();
+    statics.min = 1e9;
+    statics.sent = 0;
+    statics.recieved = 0;
     while (running)
     {
-        r_flag = false;
         fds = epoll_wait(epoll_fd, events, 1, 5000);
+
         if (fds < 0)
             handle_exit("epoll wait failed .");
 
@@ -123,14 +124,16 @@ void proccess_events(int epoll_fd, int sockfd, int ttl, struct sockaddr_in dest_
             continue;
         }
 
-        if (events[0].data.fd = sockfd && (events->events & EPOLLOUT) && get_timestamp() > next_ts)
+        if (events[0].data.fd = sockfd && (events->events & EPOLLOUT) && is_time_to_send(args, next_ts, flag))
         {
             next_ts += 1;
-            if ((bytes = send_icmp_packet(sockfd, dest_addr, build_icmp_packet(seq))) < 0)
+            if ((bytes = send_icmp_packet(sockfd, args.dest_addr, build_icmp_packet(seq))) < 0)
             {
                 printf("snd failed \n");
                 continue;
             }
+            flag = PING_SENT;
+            statics.sent += 1;
         }
 
         if (events[0].data.fd = sockfd && (events->events & EPOLLIN))
@@ -140,10 +143,31 @@ void proccess_events(int epoll_fd, int sockfd, int ttl, struct sockaddr_in dest_
                 printf("rcv failed \n");
                 continue;
             }
-            ping_report(get_round_time(packet->payload.timestamp), ttl, bytes, dest_addr, seq);
-            r_flag = true;
+            if (packet->icmp_hdr.code != ICMP_ECHOREPLY)
+                continue;
+            rtt = get_round_time(packet->payload.timestamp);
+
+            ping_report(rtt, bytes, seq, args);
             free(packet);
             seq++;
+            flag = PING_RECVED;
+            statics.recieved += 1;
+            if (rtt > statics.max)
+                statics.max = rtt;
+            if (rtt < statics.min)
+                statics.min = rtt;
         }
     }
+    static_report(args, statics);
+}
+
+void static_report(arg_parser_t args, statistics_t statcs)
+{
+    calculate_statistics(statcs);
+    printf("\n");
+    printf("--- %s ping statistics ---\n", args.rdns_hostname);
+    printf("%d packets transmitted, %d received, %.3f%% packet loss, time 1002ms\n",
+           statcs.sent, statcs.recieved, statcs.lost);
+    printf("rtt min/avg/max/mdev = %.3f/%.3f/%.3f/%.3f ms\n",
+           statcs.min, statcs.avg, statcs.max, statcs.mdev);
 }
