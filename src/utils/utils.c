@@ -1,16 +1,27 @@
 #include "includes/utils.h"
 
-void handle_exit(char *msg)
-{
-    printf("%s terminated for the following reasons\n", TARGET_NAME);
-    perror(msg);
-    exit(EXIT_FAILURE);
-}
-
 void ping_report(double rtt, int bytes, int seq, arg_parser_t args)
 {
-    printf("%d bytes from %s (%s) icmp_seq=%d ttl=%d time= %.2f ms\n",
-           bytes, args.rdns_hostname, args.ip, seq, args.ttl, rtt);
+    char wb[1024];
+    memset(wb, 0, sizeof(wb));
+    if (args.flags & PING_FLOOD)
+    {
+        printf("\b");
+        return;
+    }
+    if (args.ip_type != ADRESS_IP4)
+        sprintf(wb, " (%s) ", args.ip);
+    printf("%d bytes from %s%s icmp_seq=%d ttl=%d time= %.2f ms\n",
+           bytes, args.hostname, wb, seq, args.ttl, rtt);
+}
+
+void ping_start_msg(arg_parser_t args, int total_size, int data_size)
+{
+    char wb[1024];
+    memset(wb, 0, sizeof(wb));
+    if (args.ip_type != ADRESS_IP4)
+        sprintf(wb, " (%s) ", args.ip);
+    printf("%s %s%s %d(%d) bytes of data.\n", TARGET_NAME, args.hostname, wb, data_size, total_size);
 }
 
 uint16_t checksum(void *packet, int packet_len)
@@ -77,9 +88,10 @@ double get_round_time(struct timespec start)
 {
     struct timespec end;
     struct timespec diff;
+
     clock_gettime(CLOCK_MONOTONIC, &end);
-    return (end.tv_sec - start.tv_sec) * 1000 +
-           (end.tv_nsec - start.tv_nsec) / 1000000;
+    return (float)(end.tv_sec - start.tv_sec) * 1000 +
+           (float)(end.tv_nsec - start.tv_nsec) / 1000000;
 }
 
 char *reverse_dns_lookup(struct sockaddr_in *addr)
@@ -88,8 +100,29 @@ char *reverse_dns_lookup(struct sockaddr_in *addr)
 
     buffer = malloc(sizeof(char) * NI_MAXHOST);
     if (getnameinfo((struct sockaddr *)addr, sizeof(struct sockaddr_in), buffer, NI_MAXHOST, NULL, 0, NI_NAMEREQD))
-        handle_exit("getnameinfo fialed");
+        handle_exit("getnameinfo fialed", 0);
     return buffer;
+}
+
+struct sockaddr_in dns_lookup(char *hostname)
+{
+    struct sockaddr_in dest_addr;
+    struct in_addr **addr_list;
+    struct hostent *hent;
+    char *ip;
+    memset(&dest_addr, 0, sizeof(dest_addr));
+    dest_addr.sin_family = AF_INET;
+
+    if (!(hent = gethostbyname(hostname)))
+        handle_exit("Name or service not known", 0);
+
+    addr_list = (struct in_addr **)hent->h_addr_list;
+
+    for (int i = 0; addr_list[i] != NULL; i++)
+        ip = inet_ntoa(*addr_list[i]);
+
+    dest_addr.sin_addr.s_addr = inet_addr(ip);
+    return dest_addr;
 }
 
 double get_timestamp()
@@ -100,15 +133,28 @@ double get_timestamp()
            time.tv_nsec / 1000000000;
 }
 
-short is_time_to_send(arg_parser_t args, double next_ts, __uint32_t flag)
+short is_time_to_send(arg_parser_t args, double next_ts)
 {
     if (args.flags & PING_FLOOD)
         return get_timestamp() + args.interval > next_ts - 1;
     return get_timestamp() > next_ts;
 }
 
-double calculate_statistics(statistics_t statistics)
+// 1 / 1 = 1
+double calculate_statistics(statistics_t *statistics)
 {
-    statistics.mdev = 0.0; // calculate it later
-    statistics.lost = ((statistics.sent - statistics.recieved) / statistics.sent) * 100;
+    statistics->mdev = 0.0; // calculate it later
+    statistics->lost = (float)((statistics->sent - statistics->recieved) / statistics->sent) * 100;
+}
+
+void handle_exit(char *msg, short vebrose)
+{
+    if (!vebrose)
+    {
+        printf("%s terminated for the following reasons\n", TARGET_NAME);
+        perror(msg);
+    }
+    else
+        printf("Failed\n");
+    exit(EXIT_FAILURE);
 }

@@ -6,11 +6,11 @@
 #include <signal.h>
 #include <errno.h>
 #include <string.h>
+#include <fcntl.h>
 
 void proccess_events(int epoll_fd, int sockfd, arg_parser_t args);
-void toggle_epoll(int epoll_fd, int sockfd, uint32_t events);
 void inthandler();
-struct sockaddr_in dns_lookup(char *str_addr);
 int setup_epoll(int sock);
 int setup_socket(int ttl);
-void static_report();
+void static_report(arg_parser_t args, statistics_t statics);
+void update_statistics(statistics_t *statics, double rtt);

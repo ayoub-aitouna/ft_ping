@@ -42,15 +42,13 @@ ifneq ($(CFG),debug)
 	@exit 1
 endif
 endif
-	@echo "┌---------------------------------------------┐"
-	@echo "|configuration "$(CFG)"                          │"
-	@echo "└---------------------------------------------┘"
-
+	@echo "---------------------------------------------------------------------┘"
+	@echo ""
 ${TARGET}: ${OBJS} | inform
 	@mkdir -p ${dir $@}
 	@$(LD) $(LDFLAGS) -o $@.debug $(OBJS)
 	@$(STRIP) $@.debug -o $@
-	ln -fs ${TARGET} ${TARGET_NAME} 
+	@ln -fs ${TARGET} ${TARGET_NAME} 
 
 $(OBJS_DIR)/%.o: %.c | inform
 	@mkdir -p ${dir $@}

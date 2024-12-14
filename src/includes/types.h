@@ -21,6 +21,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <ctype.h>
 
 #define PING_SLEEP_RATE 10000
 #define LOG 0
@@ -36,6 +37,14 @@ enum PING_FLAGS
 #define PING_SENT PING_SENT
     PING_RECVED = 0x1 << 1,
 #define PING_RECVED PING_RECVED
+};
+
+enum ADRESS_TYPE
+{
+    ADRESS_IP4 = 0x0,
+#define ADRESS_IP4 ADRESS_IP4
+    ADRESS_HOSTNAME = 0x1,
+#define ADRESS_HOSTNAME ADRESS_HOSTNAME
 };
 
 typedef struct icmphdr icmphdr_t;
@@ -66,13 +75,13 @@ enum ARGUMENT_FLAGS
 typedef struct arg_parser
 {
     char *hostname;
-    char *rdns_hostname;
     char ip[INET_ADDRSTRLEN];
     __uint32_t flags;
     double interval;
     __uint32_t ttl;
     struct sockaddr_in dest_addr;
-
+    short ip_type;
+    int count;
 } arg_parser_t;
 
 typedef struct statistics
@@ -84,4 +93,5 @@ typedef struct statistics
     __uint32_t sent;
     __uint32_t recieved;
     double lost;
+    double total_rrt;
 } statistics_t;

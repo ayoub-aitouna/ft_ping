@@ -13,6 +13,13 @@ int send_icmp_packet(int sock, struct sockaddr_in dest_addr, icmp_packet_t icmp_
     return sizeof(icmp_packet);
 }
 
+void print_ip_address(uint32_t saddr)
+{
+    struct in_addr ip_addr;
+    ip_addr.s_addr = saddr;
+    printf("Source IP Address: %s\n", inet_ntoa(ip_addr));
+}
+
 icmp_packet_t *recieve_icmp_packet(int sock)
 {
     struct sockaddr_in from;
@@ -21,10 +28,10 @@ icmp_packet_t *recieve_icmp_packet(int sock)
     icmp_packet_t *icmp_packet;
     socklen_t from_len;
     char buffer[1024];
+    char ip_str[INET_ADDRSTRLEN];
 
-    icmp_packet = malloc(sizeof(icmp_packet_t) * 1);
-    
-    if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &from_len) < 0)
+    icmp_packet = malloc(sizeof(icmp_packet_t));
+    if (read(sock, buffer, sizeof(buffer)) < 0)
     {
         perror("recvfrom has Failed");
         return NULL;
@@ -32,6 +39,8 @@ icmp_packet_t *recieve_icmp_packet(int sock)
 
     ip_hdr = (struct iphdr *)buffer;
     memcpy(icmp_packet, buffer + ip_hdr->ihl * 4, sizeof(icmp_packet_t));
+
+    inet_ntop(AF_INET, &(from.sin_addr), ip_str, INET_ADDRSTRLEN);
     print_icmp_packet(icmp_packet, "recieved_icmp_packet");
     return icmp_packet;
 }
