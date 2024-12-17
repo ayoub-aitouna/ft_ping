@@ -44,3 +44,19 @@ icmp_packet_t *recieve_icmp_packet(int sock)
     print_icmp_packet(icmp_packet, "recieved_icmp_packet");
     return icmp_packet;
 }
+
+int proccess_send(arg_parser_t *args, statistics_t *statics, struct timeval *timeout, int sockfd, int seq)
+{
+    int bytes;
+
+    if (args->count != -1 && statics->sent >= args->count)
+        return -3;
+    if ((args->timeout != 0 && time_cmp(timeout)))
+        return -2;
+    if ((bytes = send_icmp_packet(sockfd, args->dest_addr, build_icmp_packet(seq))) < 0)
+        return -1;
+    if (args->flags & PING_FLOOD)
+        printf(FLOOD_INDECATOR);
+    statics->sent += 1;
+    return 0;
+}

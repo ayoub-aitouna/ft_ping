@@ -3,6 +3,9 @@
 
 int parse_args(int ac, char **av, arg_parser_t *args)
 {
+
+    struct option *long_options;
+    char *short_options;
     int opt;
 
     if (!args)
@@ -10,34 +13,43 @@ int parse_args(int ac, char **av, arg_parser_t *args)
 
     args->ttl = 120;
     args->flags = 0x0;
-    args->interval = 0;
+    args->interval = 1;
     args->count = -1;
+    args->preload = 0;
+    args->timeout = 0;
 
-    struct option long_options[] = {
+    short_options = "Vh"
+                    "l:i:c:w:W:t:P:s:p:"
+                    "vfnT"
+                    "?";
+    long_options = (struct option[]){
         {"ttl", required_argument, NULL, 't'},
         {"ip-timestamp", required_argument, NULL, 'P'},
         {"help", no_argument, NULL, 'h'},
         {NULL, 0, NULL, 0}};
 
-    while ((opt = getopt_long(ac, av, "vVhflni:c:w:W:prsTt:P?", long_options, NULL)) != -1)
+    while ((opt = getopt_long(ac, av, short_options, long_options, NULL)) != -1)
     {
         switch (opt)
         {
-
         case 'f':
             args->flags |= PING_FLOOD;
+            args->interval = 0.01;
             break;
         case 'l':
             args->flags |= PING_PRELOAD;
+            args->preload = validate_int_value(optarg);
+            if (args->preload > 3)
+                handle_exit("cannot set preload to value greater than 3", 1);
             break;
         case 'n':
-            args->flags |= PING_NO_DNS;
+            args->flags |= PING_NO_REVERSE_DNS;
             break;
         case 't':
-            args->ttl = atoi(optarg);
+            args->ttl = validate_int_value(optarg);
             break;
         case 'c':
-            args->count = atoi(optarg);
+            args->count = validate_int_value(optarg);
             break;
         case 'i':
             args->interval = atof(optarg);
@@ -46,10 +58,7 @@ int parse_args(int ac, char **av, arg_parser_t *args)
             args->flags |= PING_VEBROSE;
             break;
         case 'w':
-            break;
-        case 'W':
-            break;
-        case 'P':
+            args->timeout = validate_int_value(optarg);
             break;
         case 'V':
             print_version();
@@ -65,20 +74,46 @@ int parse_args(int ac, char **av, arg_parser_t *args)
         printf("%s: usage error: Destination address required\n", TARGET_NAME);
         exit(1);
     }
+    args->packet_size = 56;
     args->hostname = av[optind];
-
     args->ip_type = get_address_type(args->hostname);
     args->dest_addr = dns_lookup(args->hostname);
-
     if (args->ip_type != ADRESS_IP4)
         inet_ntop(AF_INET, &(args->dest_addr.sin_addr), args->ip, INET_ADDRSTRLEN);
-
     return 0;
 }
 
 void print_version()
 {
     printf("%s version 1.0.0\n", TARGET_NAME);
+}
+
+int validate_int_value(char *str)
+{
+    int len, i, value;
+    char wb[1025];
+
+    len = strlen(str);
+    i = 0;
+
+    if (str[i] == '-' || str[i] == '+')
+        i++;
+    for (; i < len; i++)
+    {
+        if (!isdigit(str[i]))
+        {
+            sprintf(wb, "%s: invalid argument: %s", TARGET_NAME, str);
+            handle_exit(wb, 1);
+        }
+    }
+    value = atoi(str);
+    if (value < 0 || value > 65536)
+    {
+        sprintf(wb, "%s: invalid argument: '%s': out of range: 1 <= value <= 65536", TARGET_NAME, str);
+        handle_exit(wb, 1);
+    }
+
+    return value;
 }
 
 void print_helper()
@@ -98,9 +133,6 @@ void print_helper()
            "  -W <timeout>       time to wait for response\n");
 }
 
-// 10.2.23.23
-// xxxx.xxxx.xxxx.xxxx
-// x.x.x.x
 short get_address_type(char *hostname)
 {
     int i, nc, dc, sc;

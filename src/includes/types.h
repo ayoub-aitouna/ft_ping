@@ -31,6 +31,10 @@
 #define CLOCK_MONOTONIC 1
 #endif
 
+#define CLEAR_CHAR "\b \b"
+#define FLOOD_INDECATOR "."
+#define MAX_SEQ_REC 1024
+
 enum PING_FLAGS
 {
     PING_SENT = 0x0,
@@ -62,26 +66,29 @@ typedef struct icmp_packet
 
 enum ARGUMENT_FLAGS
 {
-    PING_VEBROSE = 0x1,
+    PING_VEBROSE = 0x1U,
 #define PING_VEBROSE PING_VEBROSE
-    PING_FLOOD = 0x1 << 1,
+    PING_FLOOD = 0x1U << 1,
 #define PING_FLOOD PING_FLOOD
     PING_PRELOAD = 0x1U << 2,
 #define PING_PRELOAD PING_PRELOAD
-    PING_NO_DNS = 0x1U << 3,
-#define PING_NO_DNS PING_NO_DNS
+    PING_NO_REVERSE_DNS = 0x1U << 3,
+#define PING_NO_REVERSE_DNS PING_NO_REVERSE_DNS
 };
 
 typedef struct arg_parser
 {
     char *hostname;
     char ip[INET_ADDRSTRLEN];
-    __uint32_t flags;
+    __uint64_t flags;
     double interval;
     __uint32_t ttl;
     struct sockaddr_in dest_addr;
     short ip_type;
     int count;
+    int preload;
+    int timeout;
+    int packet_size;
 } arg_parser_t;
 
 typedef struct statistics
@@ -89,6 +96,7 @@ typedef struct statistics
     double min;
     double avg;
     double max;
+    double sum_rrt;
     double mdev;
     __uint32_t sent;
     __uint32_t recieved;

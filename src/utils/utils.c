@@ -1,27 +1,23 @@
 #include "includes/utils.h"
+#include <sys/time.h>
 
-void ping_report(double rtt, int bytes, int seq, arg_parser_t args)
+icmp_packet_t build_icmp_packet(int seq)
 {
-    char wb[1024];
-    memset(wb, 0, sizeof(wb));
-    if (args.flags & PING_FLOOD)
-    {
-        printf("\b");
-        return;
-    }
-    if (args.ip_type != ADRESS_IP4)
-        sprintf(wb, " (%s) ", args.ip);
-    printf("%d bytes from %s%s icmp_seq=%d ttl=%d time= %.2f ms\n",
-           bytes, args.hostname, wb, seq, args.ttl, rtt);
-}
+    icmp_packet_t packet;
 
-void ping_start_msg(arg_parser_t args, int total_size, int data_size)
-{
-    char wb[1024];
-    memset(wb, 0, sizeof(wb));
-    if (args.ip_type != ADRESS_IP4)
-        sprintf(wb, " (%s) ", args.ip);
-    printf("%s %s%s %d(%d) bytes of data.\n", TARGET_NAME, args.hostname, wb, data_size, total_size);
+    memset(&packet, 0, sizeof(packet));
+
+    packet.icmp_hdr.type = ICMP_ECHO;
+    packet.icmp_hdr.code = 0;
+    packet.icmp_hdr.un.echo.id = getpid();
+    packet.icmp_hdr.un.echo.sequence = seq;
+    packet.icmp_hdr.checksum = 0;
+    memset(packet.payload.msg, 0, sizeof(packet.payload.msg));
+    for (int i = 0; i < 40; i++)
+        packet.payload.msg[i] = '-';
+    clock_gettime(CLOCK_MONOTONIC, &packet.payload.timestamp);
+    packet.icmp_hdr.checksum = checksum(&packet, sizeof(packet));
+    return packet;
 }
 
 uint16_t checksum(void *packet, int packet_len)
@@ -43,45 +39,6 @@ uint16_t checksum(void *packet, int packet_len)
     sum += (sum >> 16);
     result = ~sum;
     return result;
-}
-
-void print_icmp_packet(icmp_packet_t *packet, char *title)
-{
-    if (!LOG)
-        return;
-    printf("┌------------------------------%s------------------------┐\n", title);
-    printf("| ICMP Header:\n");
-    printf("| Type: %d, Code: %d, ID: %d, Sequence: %d, Checksum: 0x%x\n",
-           packet->icmp_hdr.type, packet->icmp_hdr.code, packet->icmp_hdr.un.echo.id,
-           packet->icmp_hdr.un.echo.sequence, packet->icmp_hdr.checksum);
-
-    printf("|---------------------------------------------------------------------|\n");
-
-    printf("| ICMP Payload:\n");
-    printf("| Time: %06ld:%06ld ms \n",
-           packet->payload.timestamp.tv_sec,
-           packet->payload.timestamp.tv_nsec);
-    printf("└---------------------------------------------------------------------┘\n");
-}
-
-icmp_packet_t build_icmp_packet(int seq)
-{
-    icmp_packet_t packet;
-
-    memset(&packet, 0, sizeof(packet));
-
-    packet.icmp_hdr.type = ICMP_ECHO;
-    packet.icmp_hdr.code = 0;
-    packet.icmp_hdr.un.echo.id = getpid();
-    packet.icmp_hdr.un.echo.sequence = seq;
-    packet.icmp_hdr.checksum = 0;
-    memset(packet.payload.msg, 0, sizeof(packet.payload.msg));
-    for (int i = 0; i < 40; i++)
-        packet.payload.msg[i] = '-';
-    clock_gettime(CLOCK_MONOTONIC, &packet.payload.timestamp);
-
-    packet.icmp_hdr.checksum = checksum(&packet, sizeof(packet));
-    return packet;
 }
 
 double get_round_time(struct timespec start)
@@ -140,13 +97,6 @@ short is_time_to_send(arg_parser_t args, double next_ts)
     return get_timestamp() > next_ts;
 }
 
-// 1 / 1 = 1
-double calculate_statistics(statistics_t *statistics)
-{
-    statistics->mdev = 0.0; // calculate it later
-    statistics->lost = (float)((statistics->sent - statistics->recieved) / statistics->sent) * 100;
-}
-
 void handle_exit(char *msg, short vebrose)
 {
     if (!vebrose)
@@ -157,4 +107,35 @@ void handle_exit(char *msg, short vebrose)
     else
         printf("Failed\n");
     exit(EXIT_FAILURE);
+}
+
+void update_next_date(struct timeval *next, double interval)
+{
+    next->tv_usec += interval * 1e6;
+    if (next->tv_usec >= 1e6)
+    {
+        next->tv_usec -= 1e6;
+        next->tv_sec++;
+    }
+}
+
+int time_cmp(struct timeval *next)
+{
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    return timercmp(&now, next, >=);
+}
+
+struct timeval get_timeout(double interval)
+{
+    struct timeval timeout;
+    gettimeofday(&timeout, NULL);
+    timeout.tv_sec += (int)interval;
+    timeout.tv_usec += (int)(interval * 1e6);
+    if (timeout.tv_usec >= 1e6)
+    {
+        timeout.tv_usec %= (int)1e6;
+        timeout.tv_sec += (int)interval / 1e6;
+    }
+    return timeout;
 }

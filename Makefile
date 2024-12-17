@@ -69,7 +69,10 @@ fclean: clean
 .PHONY: re
 re : fclean  ${TARGET}
 
-
+.Phony: install
+install: ${TARGET}
+	@cp ${TARGET} /usr/local/bin/${TARGET_NAME}
+	@echo "Installed ${TARGET_NAME} to /usr/local/bin"
 
 .PHONY: spinup
 spinup:
@@ -85,6 +88,7 @@ help:
 	@echo "   clean    Remove object files and intermediate build files"
 	@echo "   fclean   Remove the build directory"
 	@echo "   re       Clean and rebuild"
+	@echo "   install  Installs the ${TARGET_NAME} binary"
 	@echo "   spinup   create a container and launch it for testing"
 	@echo "   help     Show this help message"
 	

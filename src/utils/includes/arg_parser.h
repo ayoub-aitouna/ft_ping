@@ -9,9 +9,8 @@
 #include "../../includes/types.h"
 #include "./utils.h"
 
-
-
 void print_helper();
 short get_address_type(char *hostname);
 int parse_args(int ac, char **av, arg_parser_t *args);
 void print_version();
+int validate_int_value(char *str);

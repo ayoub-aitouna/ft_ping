@@ -1,0 +1,77 @@
+.\" Manpage for ft_ping.
+.\" Contact aitounaayoub05@gmail.com to correct errors or typos.
+
+.TH ft_ping 8 "16 dec 2024" "1.0" "ft_ping man page"
+
+.SH NAME
+ft_ping \- send ICMP ECHO_REQUEST to network hosts 
+
+.SH SYNOPSIS
+ft_ping [licwWtPvfnprsTVh] [-c count] [-f flood ] [-i interval] [-l preload]
+[-w deadline] [-W timeout] [-p pattern] [-s packetsize] [-t ttl] [-T timestamp option]  [hop...] {destination}
+
+.SH DESCRIPTION
+ft_ping uses the ICMP protocol's mandatory ECHO_REQUEST datagram to elicit an ICMP ECHO_RESPONSE from a host or
+gateway. ECHO_REQUEST datagrams ("pings") have an IP and ICMP header, followed by a struct timeval and then an
+arbitrary number of "pad" bytes used to fill out the packet.
+
+.SH OPTIONS
+
+.IP \-c count
+Stop after sending count ECHO_REQUEST packets. With deadline option, ping waits for count ECHO_REPLY packets, until the timeout expires.
+
+.IP \-f flood
+Flood ping. For every ECHO_REQUEST sent a period ``.'' is printed, while for every ECHO_REPLY received a backspace is printed. This provides a rapid display of how many packets are being dropped. Only the super-user may use this option. This can be very hard on a network and should be used with caution.
+
+.IP \-i interval
+Wait interval seconds between sending each packet. The default is to wait for one second between each packet normally, or not to wait in flood mode. Only super-user may set interval to values less than 0.2 seconds.
+
+.IP \-l preload
+If preload is specified, ping sends that many packets not waiting for reply. Only the super-user may select preload more than 3.
+
+.IP \-w deadline
+Specify a timeout, in seconds, before ping exits regardless of how many packets have been sent or received. In this case ping does not stop after count packet are sent, it waits either for deadline expire or until count probes are answered or for some error notification from network.
+
+.IP \-W timeout
+Time to wait for a response, in seconds. The option affects only timeout in absense of any responses, otherwise ping waits for two RTTs.
+
+.IP \-p pattern
+You may specify up to 16 ``pad'' bytes to fill out the packet you send. This is useful for diagnosing data-dependent problems in a network. For example, -p ff will cause the sent packet to be filled with all ones.
+
+.IP \-s packetsize
+Specifies the number of data bytes to be sent. The default is 56, which translates into 64 ICMP data bytes when combined with the 8 bytes of ICMP header data.
+
+.IP \-t ttl
+Set the IP Time to Live.
+
+.IP \-T timestamp option
+Set special IP timestamp options. timestamp option may be either tsonly (only timestamps), tsandaddr (timestamps and addresses) or tsprespec host1 [host2 [host3 [host4]]] (timestamp prespecified hops).
+
+.IP \-v
+Verbose output.
+
+.IP \-n
+Numeric output only. No attempt will be made to lookup symbolic names for host addresses.
+
+.IP \-r
+Bypass the normal routing tables and send directly to a host on an attached network. If the host is not on a directly-attached network, an error is returned. This option can be used to ping a local host through an interface that has no route through it provided the option -I is also used.
+
+.IP \-p
+Pattern to use for payload. The maximum usable payload size is 65468.
+
+.IP \-P
+Print timestamp (unix time + microseconds as in gettimeofday) before each line.
+
+.IP \-h
+Print usage summary.
+
+.SH EXAMPLES
+To ping the host
+.BR
+    ft_ping 8.8.8.8
+
+.SH BUGS
+No known bugs.
+
+.SH AUTHOR
+Ayoub Aitouna (aitounaayoub05@gmail.com)
