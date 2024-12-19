@@ -1,4 +1,4 @@
-#include "includes/main.h"
+#include "../include/ft_ping.h"
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -9,7 +9,7 @@ int running = true;
 int main(int ac, char **av)
 {
     struct sockaddr_in dest_addr;
-    arg_parser_t args;
+    ping_config_t args;
     int sock, epoll_fd;
 
     signal(SIGINT, inthandler);
@@ -68,14 +68,14 @@ void inthandler()
     running = false;
 }
 
-void proccess_events(int epoll_fd, int sockfd, arg_parser_t args)
+void proccess_events(int epoll_fd, int sockfd, ping_config_t args)
 {
     struct epoll_event ev, events[1];
     struct timeval next, now, timeout, gracfull;
     icmp_packet_t *packet;
     __uint32_t bytes, seq;
     struct timespec start, record[MAX_SEQ_REC];
-    statistics_t statics;
+    ping_stats_t statics;
     __uint32_t fds;
     double rtt;
     int send_status;
@@ -83,6 +83,7 @@ void proccess_events(int epoll_fd, int sockfd, arg_parser_t args)
     seq = 1;
     clock_gettime(CLOCK_MONOTONIC, &start);
     statics.min = 1e9;
+    statics.max = 0;
     statics.sent = 0;
     statics.recieved = 0;
     statics.sum_rrt = 0;
@@ -124,7 +125,7 @@ void proccess_events(int epoll_fd, int sockfd, arg_parser_t args)
             }
             rtt = get_round_time(record[seq % MAX_SEQ_REC]);
             ping_report(rtt, seq, args);
-            update_statistics(&statics, rtt);
+            update_ping_stats(&statics, rtt);
             seq++;
             free(packet);
         }

@@ -1,5 +1,5 @@
 
-#include "includes/icmp_handler.h"
+#include "../include/network_io.h"
 
 int send_icmp_packet(int sock, struct sockaddr_in dest_addr, icmp_packet_t icmp_packet)
 {
@@ -31,7 +31,8 @@ icmp_packet_t *recieve_icmp_packet(int sock)
     char ip_str[INET_ADDRSTRLEN];
 
     icmp_packet = malloc(sizeof(icmp_packet_t));
-    if (read(sock, buffer, sizeof(buffer)) < 0)
+    from_len = sizeof(from);
+    if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &from_len) < 0)
     {
         perror("recvfrom has Failed");
         return NULL;
@@ -45,7 +46,7 @@ icmp_packet_t *recieve_icmp_packet(int sock)
     return icmp_packet;
 }
 
-int proccess_send(arg_parser_t *args, statistics_t *statics, struct timeval *timeout, int sockfd, int seq)
+int proccess_send(ping_config_t *args, ping_stats_t *statics, struct timeval *timeout, int sockfd, int seq)
 {
     int bytes;
 

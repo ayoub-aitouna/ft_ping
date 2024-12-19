@@ -76,7 +76,7 @@ enum ARGUMENT_FLAGS
 #define PING_NO_REVERSE_DNS PING_NO_REVERSE_DNS
 };
 
-typedef struct arg_parser
+typedef struct ping_config
 {
     char *hostname;
     char ip[INET_ADDRSTRLEN];
@@ -89,9 +89,9 @@ typedef struct arg_parser
     int preload;
     int timeout;
     int packet_size;
-} arg_parser_t;
+} ping_config_t;
 
-typedef struct statistics
+typedef struct ping_stats
 {
     double min;
     double avg;
@@ -102,4 +102,4 @@ typedef struct statistics
     __uint32_t recieved;
     double lost;
     double total_rrt;
-} statistics_t;
+} ping_stats_t;

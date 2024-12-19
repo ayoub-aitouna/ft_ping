@@ -1,6 +1,6 @@
-#include "includes/report.h"
+#include "../include/ping_report.h"
 
-void ping_report(double rtt, int seq, arg_parser_t args)
+void ping_report(double rtt, int seq, ping_config_t args)
 {
 
     if (args.flags & PING_FLOOD)
@@ -15,7 +15,7 @@ void ping_report(double rtt, int seq, arg_parser_t args)
     printf(" icmp_seq=%d ttl=%d time= %.2f ms\n", seq, args.ttl, rtt);
 }
 
-void ping_start_msg(arg_parser_t args)
+void ping_start_msg(ping_config_t args)
 {
     // ip-header(20) + icmp-header(8) + icmp-payload(56)
     int total_size = args.packet_size + 28;
@@ -41,15 +41,15 @@ void print_icmp_packet(icmp_packet_t *packet, char *title)
     printf("└---------------------------------------------------------------------┘\n");
 }
 
-double calculate_statistics(statistics_t *statistics)
+double calculate_ping_stats(ping_stats_t *ping_stats)
 {
-    statistics->mdev = 0.0; // calculate it later
-    int lost_count = statistics->sent - statistics->recieved;
-    statistics->lost = ((float)lost_count / statistics->sent) * 100;
-    statistics->avg = statistics->sum_rrt / statistics->recieved;
+    ping_stats->mdev = 0.0; // calculate it later
+    int lost_count = ping_stats->sent - ping_stats->recieved;
+    ping_stats->lost = ((float)lost_count / ping_stats->sent) * 100;
+    ping_stats->avg = ping_stats->sum_rrt / ping_stats->recieved;
 }
 
-void update_statistics(statistics_t *statics, double rtt)
+void update_ping_stats(ping_stats_t *statics, double rtt)
 {
     if (rtt > statics->max)
         statics->max = rtt;
@@ -59,11 +59,11 @@ void update_statistics(statistics_t *statics, double rtt)
     statics->sum_rrt += rtt;
 }
 
-void static_report(arg_parser_t args, statistics_t statics)
+void static_report(ping_config_t args, ping_stats_t statics)
 {
-    calculate_statistics(&statics);
+    calculate_ping_stats(&statics);
     printf("\n");
-    printf("--- %s ping statistics ---\n", args.hostname);
+    printf("--- %s ping ping_stats ---\n", args.hostname);
     printf("%d packets transmitted, %d received, %.5f%% packet loss, time %.fms\n",
            statics.sent, statics.recieved, statics.lost, statics.total_rrt);
     if (statics.recieved)

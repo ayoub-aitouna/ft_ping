@@ -1,7 +1,7 @@
 
-#include "includes/arg_parser.h"
+#include "../include/arg_parser.h"
 
-int parse_args(int ac, char **av, arg_parser_t *args)
+int parse_args(int ac, char **av, ping_config_t *args)
 {
 
     struct option *long_options;
