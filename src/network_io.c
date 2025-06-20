@@ -42,6 +42,7 @@ icmp_packet_t *recieve_icmp_packet(int sock)
     memcpy(icmp_packet, buffer + ip_hdr->ihl * 4, sizeof(icmp_packet_t));
 
     inet_ntop(AF_INET, &(from.sin_addr), ip_str, INET_ADDRSTRLEN);
+    // printf("Recieved ICMP packet from %s\n", ip_str);
     print_icmp_packet(icmp_packet, "recieved_icmp_packet");
     return icmp_packet;
 }
